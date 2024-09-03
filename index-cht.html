@@ -1,0 +1,497 @@
+<html><head></head>
+<body>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>螞蟻與蜜蜂分類器</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50c878;
+            --background-color: #f0f4f8;
+            --text-color: #333;
+            --card-background: rgba(255, 255, 255, 0.8);
+            --card-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+            --hover-shadow: 0 8px 32px rgba(31, 38, 135, 0.25);
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            line-height: 1.6;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .panel {
+            background: var(--card-background);
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            padding: 30px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            backdrop-filter: blur(10px);
+        }
+
+        .panel:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #drop-zone, #model-drop-zone {
+            border: 3px dashed var(--secondary-color);
+            border-radius: 20px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        #drop-zone {
+            height: 220px;
+        }
+
+        #model-drop-zone {
+            height: 120px;
+        }
+
+        #drop-zone:hover, #model-drop-zone:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: scale(1.02);
+        }
+
+        #drop-zone.dragover, #model-drop-zone.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        #preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 20px auto;
+            display: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        #preview:hover {
+            transform: scale(1.05);
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            color: var(--primary-color);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #error-log {
+            color: #e74c3c;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .button:hover {
+            background-color: #3a7bc8;
+        }
+
+        .result-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .result-details {
+            margin-top: 20px;
+            text-align: left;
+            width: 100%;
+        }
+
+        .result-item {
+            margin-bottom: 10px;
+        }
+
+        .confidence-bar {
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .confidence-level {
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 0.5s ease-in-out;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel function-panel fade-in">
+            <h1>螞蟻與蜜蜂分類器</h1>
+            <div id="model-drop-zone" class="pulse">
+                <p>載入其它ONNX 模型請將檔案拖放到此處，或點擊選擇文件</p>
+                <input type="file" id="model-input" accept=".onnx">
+            </div>
+            <div id="drop-zone" class="pulse">
+                <p>將圖片拖放到此處，或點擊選擇文件</p>
+                <input type="file" id="file-input" accept="image/*">
+            </div>
+        </div>
+        <div class="panel result-panel fade-in">
+            <div class="result-container">
+                <img id="preview" alt="預覽圖">
+                <div id="result"></div>
+                <div class="loading"></div>
+                <div id="error-log"></div>
+                <div class="result-details">
+                    <div class="result-item">
+                        <span>螞蟻置信度：</span>
+                        <span id="ant-confidence"></span>
+                        <div class="confidence-bar">
+                            <div id="ant-confidence-bar" class="confidence-level"></div>
+                        </div>
+                    </div>
+                    <div class="result-item">
+                        <span>蜜蜂置信度：</span>
+                        <span id="bee-confidence"></span>
+                        <div class="confidence-bar">
+                            <div id="bee-confidence-bar" class="confidence-level"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
+    <script>
+        const modelDropZone = document.getElementById('model-drop-zone');
+        const modelInput = document.getElementById('model-input');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const preview = document.getElementById('preview');
+        const result = document.getElementById('result');
+        const loading = document.querySelector('.loading');
+        const errorLog = document.getElementById('error-log');
+        const antConfidence = document.getElementById('ant-confidence');
+        const beeConfidence = document.getElementById('bee-confidence');
+        const antConfidenceBar = document.getElementById('ant-confidence-bar');
+        const beeConfidenceBar = document.getElementById('bee-confidence-bar');
+
+        let modelSession = null;
+
+        const modelUrl = 'https://quantumwings.github.io/Classification-of-Ants-vs-Bee/model.onnx';
+
+        async function preloadModel(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                const onnxData = new Uint8Array(arrayBuffer);
+                modelSession = await ort.InferenceSession.create(onnxData);
+                console.log('預設模型加載成功');
+                errorLog.textContent = '預設模型加載成功';
+            } catch (error) {
+                console.error('加載預設模型失敗:', error);
+                errorLog.textContent = `加載預設模型失敗: ${error.message}`;
+            }
+        }
+
+        window.addEventListener('load', () => preloadModel(modelUrl));
+
+        modelDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            modelDropZone.classList.add('dragover');
+        });
+
+        modelDropZone.addEventListener('dragleave', () => {
+            modelDropZone.classList.remove('dragover');
+        });
+
+        modelDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            modelDropZone.classList.remove('dragover');
+            handleModelFile(e.dataTransfer.files);
+        });
+
+        modelDropZone.addEventListener('click', () => {
+            modelInput.click();
+        });
+
+        modelInput.addEventListener('change', (e) => {
+            handleModelFile(e.target.files);
+        });
+
+        async function handleModelFile(files) {
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.onnx')) {
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        modelSession = await ort.InferenceSession.create(arrayBuffer);
+                        console.log('自定義模型加載成功');
+                        errorLog.textContent = '自定義模型加載成功';
+                    } catch (error) {
+                        console.error('加載自定義模型失敗:', error);
+                        errorLog.textContent = `加載自定義模型失敗: ${error.message}`;
+                    }
+                } else {
+                    errorLog.textContent = '請選擇 ONNX 模型文件';
+                }
+            }
+        }
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        async function handleFiles(files) {
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                        preview.classList.add('fade-in');
+                        await classifyImage(e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    errorLog.textContent = '請選擇圖片文件';
+                }
+            }
+        }
+
+        async function classifyImage(imageData) {
+            errorLog.textContent = '';
+            if (!modelSession) {
+                errorLog.textContent = '模型尚未加載完成，請稍候';
+                return;
+            }
+
+            loading.style.display = 'block';
+            result.textContent = '';
+            antConfidence.textContent = '';
+            beeConfidence.textContent = '';
+            antConfidenceBar.style.width = '0%';
+            beeConfidenceBar.style.width = '0%';
+
+            try {
+                const classResult = await classify(imageData);
+                updateResult(classResult);
+            } catch (error) {
+                console.error('分類過程中發生錯誤:', error);
+                errorLog.textContent = `錯誤: ${error.message}`;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        async function preprocessImage(imageData) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 224;
+                    canvas.height = 224;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const imageDataArray = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+                    const floatArray = new Float32Array(3 * 224 * 224);
+                    for (let i = 0; i < 224 * 224; i++) {
+                        floatArray[i] = (imageDataArray[i * 4] / 127.5) - 1;
+                        floatArray[i + 224 * 224] = (imageDataArray[i * 4 + 1] / 127.5) - 1;
+                        floatArray[i + 2 * 224 * 224] = (imageDataArray[i * 4 + 2] / 127.5) - 1;
+                    }
+                    const tensor = new ort.Tensor('float32', floatArray, [1, 3, 224, 224]);
+                    resolve(tensor);
+                };
+                img.src = imageData;
+            });
+        }
+
+        async function classify(imageData) {
+            const tensor = await preprocessImage(imageData);
+            const feeds = { input: tensor };
+            const output = await modelSession.run(feeds);
+            return postProcessResult(output);
+        }
+
+        function postProcessResult(output) {
+            if (!output || !output.output) {
+                return { class: '分類結果不可用', confidence: 0, antConfidence: 0, beeConfidence: 0 };
+            }
+            const predictions = output.output.data;
+            const softmax = (arr) => {
+                const max = Math.max(...arr);
+                const expValues = arr.map(val => Math.exp(val - max));
+                const sumExp = expValues.reduce((acc, val) => acc + val, 0);
+                return expValues.map(val => val / sumExp);
+            };
+            const softmaxPredictions = softmax(predictions);
+            const antConfidence = softmaxPredictions[0];
+            const beeConfidence = softmaxPredictions[1];
+            const maxPrediction = Math.max(antConfidence, beeConfidence);
+            const maxIndex = softmaxPredictions.indexOf(maxPrediction);
+
+            const classes = ['螞蟻', '蜜蜂'];
+            const threshold = 0.6;
+
+            let resultClass;
+            if (maxPrediction < threshold) {
+                resultClass = '不確定';
+            } else {
+                resultClass = classes[maxIndex];
+            }
+
+            return {
+                class: resultClass,
+                confidence: maxPrediction,
+                antConfidence: antConfidence,
+                beeConfidence: beeConfidence
+            };
+        }
+
+        function updateResult(classResult) {
+            result.textContent = `${classResult.class}，置信度 ${(classResult.confidence * 100).toFixed(2)}%`;
+            result.classList.add('fade-in');
+
+            antConfidence.textContent = `${(classResult.antConfidence * 100).toFixed(2)}%`;
+            beeConfidence.textContent = `${(classResult.beeConfidence * 100).toFixed(2)}%`;
+
+            antConfidenceBar.style.width = `${classResult.antConfidence * 100}%`;
+            beeConfidenceBar.style.width = `${classResult.beeConfidence * 100}%`;
+        }
+    </script>
+</body>
+</html>
+</body></html>
